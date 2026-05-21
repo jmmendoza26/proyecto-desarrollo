@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}FreshScan — Scan{% endblock %}
+
+{% block content %}
+<section class="scan-section fade-in">
+
+  <div class="scan-header">
+    <h1 class="scan-title">Image <span class="accent">Analysis</span></h1>
+    <p class="scan-subtitle">Upload a photo of a fruit or vegetable to classify it.</p>
+  </div>
+
+  <form class="upload-form" action="/predict" method="post" enctype="multipart/form-data" id="uploadForm">
+
+    <div class="drop-zone" id="dropZone">
+      <input
+        type="file"
+        name="file"
+        id="fileInput"
+        accept="image/jpeg,image/png"
+        class="file-input"
+        aria-label="Upload an image of a fruit or vegetable"
+        required
+      />
+
+      <div class="drop-idle" id="dropIdle">
+        <div class="drop-icon">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M20 4L20 28M20 4L12 12M20 4L28 12" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M6 30H34V36H6V30Z" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <p class="drop-primary">Drop your image here</p>
+        <p class="drop-secondary">or <span class="drop-browse">click to browse</span></p>
+        <p class="drop-hint">JPG or PNG · max 5 MB</p>
+      </div>
+
+      <div class="drop-preview" id="dropPreview" style="display:none;">
+        <img id="previewImg" src="" alt="Preview" class="preview-img" />
+        <div class="preview-meta">
+          <span class="preview-name" id="previewName"></span>
+          <button type="button" class="preview-clear" id="clearBtn">✕ Remove</button>
+        </div>
+      </div>
+    </div>
+
+    <button type="submit" class="btn-analyze" id="submitBtn" disabled>
+      <span class="btn-text">ANALYZE</span>
+      <span class="btn-arrow">→</span>
+    </button>
+
+  </form>
+
+  <div class="class-chips">
+    <span class="chips-label">Detectable classes</span>
+    <div class="chips-row">
+      <span class="chip chip--apple">🍎 Apple</span>
+      <span class="chip chip--banana">🍌 Banana</span>
+      <span class="chip chip--tomato">🍅 Tomato</span>
+      <span class="chip chip--potato">🥔 Potato</span>
+      <span class="chip chip--onion">🧅 Onion</span>
+    </div>
+  </div>
+
+</section>
+
+<script>
+  const dropZone   = document.getElementById('dropZone');
+  const fileInput  = document.getElementById('fileInput');
+  const dropIdle   = document.getElementById('dropIdle');
+  const dropPreview= document.getElementById('dropPreview');
+  const previewImg = document.getElementById('previewImg');
+  const previewName= document.getElementById('previewName');
+  const clearBtn   = document.getElementById('clearBtn');
+  const submitBtn  = document.getElementById('submitBtn');
+
+  // Abrir selector al hacer clic en la zona
+  dropZone.addEventListener('click', (e) => {
+    if (e.target === clearBtn || clearBtn.contains(e.target)) return;
+    fileInput.click();
+  });
+
+  // Drag & drop visual
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('dragging');
+  });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragging'));
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragging');
+    const file = e.dataTransfer.files[0];
+    if (file) applyFile(file);
+  });
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) applyFile(fileInput.files[0]);
+  });
+
+  clearBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    resetDropZone();
+  });
+
+  function applyFile(file) {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      previewImg.src = ev.target.result;
+      previewName.textContent = file.name;
+      dropIdle.style.display = 'none';
+      dropPreview.style.display = 'flex';
+      submitBtn.disabled = false;
+      submitBtn.classList.add('ready');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function resetDropZone() {
+    fileInput.value = '';
+    previewImg.src = '';
+    previewName.textContent = '';
+    dropIdle.style.display = 'flex';
+    dropPreview.style.display = 'none';
+    submitBtn.disabled = true;
+    submitBtn.classList.remove('ready');
+  }
+
+  // Efecto de carga al enviar
+  document.getElementById('uploadForm').addEventListener('submit', () => {
+    submitBtn.querySelector('.btn-text').textContent = 'ANALYZING...';
+    submitBtn.disabled = true;
+  });
+</script>
+{% endblock %}

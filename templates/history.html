@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}FreshScan — History{% endblock %}
+
+{% block content %}
+<section class="history-section fade-in">
+
+  <div class="history-header">
+    <h1 class="history-title">Prediction <span class="accent">History</span></h1>
+    <span class="history-count">{{ predictions | length }} record{% if predictions | length != 1 %}s{% endif %}</span>
+  </div>
+
+  {% if predictions %}
+  <div class="table-wrapper">
+    <table class="history-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>File</th>
+          <th>Class</th>
+          <th>Confidence</th>
+          <th>Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in predictions %}
+        <tr class="table-row">
+
+          <td class="td-id">{{ p.id }}</td>
+
+          <td class="td-file">
+            <span class="file-name">{{ p.filename }}</span>
+          </td>
+
+          <td class="td-class">
+            {% set badges = {
+              "Apple":  ("badge--apple",  "🍎"),
+              "Banana": ("badge--banana", "🍌"),
+              "Tomato": ("badge--tomato", "🍅"),
+              "Potato": ("badge--potato", "🥔"),
+              "Onion":  ("badge--onion",  "🧅")
+            } %}
+            {% set info = badges.get(p.predicted_class, ("badge--default", "🌿")) %}
+            <span class="badge {{ info[0] }}">{{ info[1] }} {{ p.predicted_class }}</span>
+          </td>
+
+          <td class="td-confidence">
+            <div class="td-confidence-inner">
+              <div class="mini-bar-wrap">
+                <div class="mini-bar" style="width: {{ (p.confidence * 100) | round(1) }}%"></div>
+              </div>
+              <span class="mini-conf-value">{{ (p.confidence * 100) | round(1) }}%</span>
+            </div>
+          </td>
+
+          <td class="td-date">
+            <span class="date-str">{{ p.created_at.strftime('%b %d, %Y') }}</span>
+            <span class="time-str">{{ p.created_at.strftime('%H:%M') }}</span>
+          </td>
+
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% else %}
+  <div class="history-empty">
+    <span class="empty-icon">⬡</span>
+    <p class="empty-title">No predictions yet</p>
+    <p class="empty-sub">Upload an image on the Scan page to get started.</p>
+    <a href="/" class="btn-primary">GO TO SCAN →</a>
+  </div>
+  {% endif %}
+
+</section>
+{% endblock %}

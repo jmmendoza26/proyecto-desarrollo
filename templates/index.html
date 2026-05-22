@@ -76,6 +76,7 @@
   // Abrir selector al hacer clic en la zona
   dropZone.addEventListener('click', (e) => {
     if (e.target === clearBtn || clearBtn.contains(e.target)) return;
+    if (e.target === fileInput) return;
     fileInput.click();
   });
 

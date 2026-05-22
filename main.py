@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from database import engine, get_db, Base
 from models_db import Prediction
-from model import load_model, predict
+from model import predict
 
 # Extensiones de imagen permitidas
 ALLOWED_EXTENSIONS = {"image/jpeg", "image/png", "image/jpg"}
@@ -16,20 +16,11 @@ ALLOWED_EXTENSIONS = {"image/jpeg", "image/png", "image/jpg"}
 # Tamaño máximo permitido: 5 MB
 MAX_SIZE_BYTES = 5 * 1024 * 1024
 
-# Variables globales para el modelo y las clases
-ml_model = None
-ml_classes = None
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Crear tablas en la base de datos al iniciar
     Base.metadata.create_all(bind=engine)
-
-    # Cargar el modelo al iniciar
-    global ml_model, ml_classes
-    ml_model, ml_classes = load_model()
-
     yield
 
 
@@ -42,7 +33,7 @@ templates = Jinja2Templates(directory="templates")
 
 @app.get("/")
 def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request, "index.html")
 
 
 @app.post("/predict")
@@ -67,7 +58,7 @@ async def predict_image(
         )
 
     # Realizar predicción
-    result = predict(image_bytes, ml_model, ml_classes)
+    result = predict(image_bytes)
 
     # Guardar en base de datos
     prediction = Prediction(
@@ -79,8 +70,7 @@ async def predict_image(
     db.commit()
     db.refresh(prediction)
 
-    return templates.TemplateResponse("result.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "result.html", {
         "filename": file.filename,
         "predicted_class": result["predicted_class"],
         "confidence": round(result["confidence"] * 100, 1)
@@ -90,7 +80,6 @@ async def predict_image(
 @app.get("/history")
 def history(request: Request, db: Session = Depends(get_db)):
     predictions = db.query(Prediction).order_by(Prediction.created_at.desc()).all()
-    return templates.TemplateResponse("history.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "history.html", {
         "predictions": predictions
     })

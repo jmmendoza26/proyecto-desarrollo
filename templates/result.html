@@ -26,10 +26,12 @@
     <span class="result-file-name">{{ filename }}</span>
   </div>
 
-  <div class="result-card">
+  <div class="result-card result-card--{{ predicted_class | lower }}">
 
     <div class="result-class-row">
-      <span class="result-icon">{{ class_icons.get(predicted_class, "🌿") }}</span>
+      <div class="result-icon-wrap">
+        <span class="result-icon">{{ class_icons.get(predicted_class, "🌿") }}</span>
+      </div>
       <div class="result-class-info">
         <span class="result-label">Predicted class</span>
         <span class="result-class-name">{{ predicted_class }}</span>

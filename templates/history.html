@@ -2,28 +2,46 @@
 {% block title %}FreshScan — History{% endblock %}
 
 {% block content %}
+
+{% set class_icons = {"Apple": "🍎", "Banana": "🍌", "Tomato": "🍅", "Potato": "🥔", "Onion": "🧅"} %}
+{% set badge_map   = {"Apple": "badge--apple", "Banana": "badge--banana", "Tomato": "badge--tomato", "Potato": "badge--potato", "Onion": "badge--onion"} %}
+
 <section class="history-section fade-in">
 
   <div class="history-header">
     <h1 class="history-title">Prediction <span class="accent">History</span></h1>
-    <span class="history-count">{{ predictions | length }} record{% if predictions | length != 1 %}s{% endif %}</span>
+    <div class="history-count-group">
+      <span class="history-count" id="recordCount">{{ predictions | length }} record{% if predictions | length != 1 %}s{% endif %}</span>
+      {% if predictions %}
+      <button class="btn-delete-all" id="deleteAllBtn" title="Delete all records">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M5.5 1.5h4M2.5 3.5h10M4 3.5l.5 8.5h6L11 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M6 6.5v4M9 6.5v4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        </svg>
+        Delete all
+      </button>
+      {% endif %}
+    </div>
   </div>
 
   {% if predictions %}
-  <div class="table-wrapper">
-    <table class="history-table">
+  <div class="table-wrapper" style="position:relative">
+    <table class="history-table" id="historyTable">
       <thead>
         <tr>
           <th>#</th>
           <th>File</th>
-          <th>Class</th>
+          <th>Predicted</th>
           <th>Confidence</th>
+          <th>Your Class</th>
+          <th>Result</th>
           <th>Date</th>
+          <th style="width:40px"></th>
         </tr>
       </thead>
-      <tbody>
+      <tbody id="historyBody">
         {% for p in predictions %}
-        <tr class="table-row">
+        <tr class="table-row" data-id="{{ p.id }}">
 
           <td class="td-id">{{ p.id }}</td>
 
@@ -32,15 +50,9 @@
           </td>
 
           <td class="td-class">
-            {% set badges = {
-              "Apple":  ("badge--apple",  "🍎"),
-              "Banana": ("badge--banana", "🍌"),
-              "Tomato": ("badge--tomato", "🍅"),
-              "Potato": ("badge--potato", "🥔"),
-              "Onion":  ("badge--onion",  "🧅")
-            } %}
-            {% set info = badges.get(p.predicted_class, ("badge--default", "🌿")) %}
-            <span class="badge {{ info[0] }}">{{ info[1] }} {{ p.predicted_class }}</span>
+            <span class="badge {{ badge_map.get(p.predicted_class, 'badge--default') }}">
+              {{ class_icons.get(p.predicted_class, '🌿') }} {{ p.predicted_class }}
+            </span>
           </td>
 
           <td class="td-confidence">
@@ -52,9 +64,47 @@
             </div>
           </td>
 
+          <td class="td-user-class">
+            <div class="user-class-wrap" data-id="{{ p.id }}">
+              {% if p.user_class %}
+              <span class="badge {{ badge_map.get(p.user_class, 'badge--default') }} badge-editable" title="Click to edit">
+                {{ class_icons.get(p.user_class, '🌿') }} {{ p.user_class }}
+              </span>
+              {% else %}
+              <span class="badge badge--default badge-editable" title="Click to edit">— Edit</span>
+              {% endif %}
+              <div class="class-popover" style="display:none;">
+                {% for cls in classes %}
+                <button type="button" class="popover-class-btn popover-class-btn--{{ cls | lower }}" data-class="{{ cls }}">
+                  {{ class_icons[cls] }} {{ cls }}
+                </button>
+                {% endfor %}
+              </div>
+            </div>
+          </td>
+
+          <td class="td-result">
+            {% if p.result == "Correct" %}
+            <span class="badge badge--correct">✓ Correct</span>
+            {% elif p.result == "Incorrect" %}
+            <span class="badge badge--incorrect">✗ Incorrect</span>
+            {% else %}
+            <span class="badge badge--default">—</span>
+            {% endif %}
+          </td>
+
           <td class="td-date">
             <span class="date-str">{{ p.created_at.strftime('%b %d, %Y') }}</span>
             <span class="time-str">{{ p.created_at.strftime('%H:%M') }}</span>
+          </td>
+
+          <td class="td-actions">
+            <button class="btn-delete-row" data-id="{{ p.id }}" title="Delete record">
+              <svg width="14" height="14" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M5.5 1.5h4M2.5 3.5h10M4 3.5l.5 8.5h6L11 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M6 6.5v4M9 6.5v4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+              </svg>
+            </button>
           </td>
 
         </tr>
@@ -73,4 +123,104 @@
   {% endif %}
 
 </section>
+
+<script>
+  const classIcons = { Apple:"🍎", Banana:"🍌", Tomato:"🍅", Potato:"🥔", Onion:"🧅" };
+  const badgeMap   = { Apple:"badge--apple", Banana:"badge--banana", Tomato:"badge--tomato", Potato:"badge--potato", Onion:"badge--onion" };
+
+  // ── Helpers ─────────────────────────────────────────────────
+
+  function updateCount(n) {
+    const el = document.getElementById('recordCount');
+    if (el) el.textContent = n + ' record' + (n !== 1 ? 's' : '');
+  }
+
+  function renderBadge(cls) {
+    const badgeCls = badgeMap[cls] || 'badge--default';
+    const icon = classIcons[cls] || '🌿';
+    return `<span class="badge ${badgeCls} badge-editable" title="Click to edit">${icon} ${cls}</span>`;
+  }
+
+  function renderResult(result) {
+    if (result === 'Correct')   return '<span class="badge badge--correct">✓ Correct</span>';
+    if (result === 'Incorrect') return '<span class="badge badge--incorrect">✗ Incorrect</span>';
+    return '<span class="badge badge--default">—</span>';
+  }
+
+  // ── Delete all ───────────────────────────────────────────────
+
+  const deleteAllBtn = document.getElementById('deleteAllBtn');
+  if (deleteAllBtn) {
+    deleteAllBtn.addEventListener('click', async () => {
+      if (!confirm('Delete all records? This cannot be undone.')) return;
+      const res = await fetch('/history', { method: 'DELETE' });
+      if (res.ok) {
+        document.getElementById('historyBody').innerHTML = '';
+        updateCount(0);
+        deleteAllBtn.remove();
+      }
+    });
+  }
+
+  // ── Delete individual ────────────────────────────────────────
+
+  document.getElementById('historyBody')?.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.btn-delete-row');
+    if (!btn) return;
+    const id = btn.dataset.id;
+    const res = await fetch(`/history/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      const row = document.querySelector(`tr[data-id="${id}"]`);
+      row?.remove();
+      const remaining = document.querySelectorAll('#historyBody tr').length;
+      updateCount(remaining);
+    }
+  });
+
+  // ── Inline class editor ──────────────────────────────────────
+
+  let openPopover = null;
+
+  function closeAllPopovers() {
+    document.querySelectorAll('.class-popover').forEach(p => p.style.display = 'none');
+    openPopover = null;
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.user-class-wrap')) closeAllPopovers();
+  });
+
+  document.getElementById('historyBody')?.addEventListener('click', async (e) => {
+    // Open popover
+    const badge = e.target.closest('.badge-editable');
+    if (badge) {
+      const wrap = badge.closest('.user-class-wrap');
+      const popover = wrap.querySelector('.class-popover');
+      if (openPopover && openPopover !== popover) closeAllPopovers();
+      popover.style.display = popover.style.display === 'none' ? 'flex' : 'none';
+      openPopover = popover.style.display === 'flex' ? popover : null;
+      return;
+    }
+
+    // Select class from popover
+    const classBtn = e.target.closest('.popover-class-btn');
+    if (classBtn) {
+      const wrap = classBtn.closest('.user-class-wrap');
+      const id = wrap.dataset.id;
+      const newClass = classBtn.dataset.class;
+      const res = await fetch(`/history/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_class: newClass }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        wrap.querySelector('.badge-editable').outerHTML = renderBadge(data.user_class);
+        const row = wrap.closest('tr');
+        row.querySelector('.td-result').innerHTML = renderResult(data.result);
+      }
+      closeAllPopovers();
+    }
+  });
+</script>
 {% endblock %}

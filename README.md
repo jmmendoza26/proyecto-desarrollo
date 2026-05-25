@@ -2,7 +2,7 @@
 
 Web app for fruit and vegetable classification using a ResNet18 model served through FastAPI.
 
-Upload a photo and the model returns the predicted class and confidence score. Every prediction is saved to a PostgreSQL database and browsable in the history view.
+Upload a photo, select the correct class, and the model returns the predicted class and confidence score. Every prediction is saved to a PostgreSQL database with a correctness result and is browsable in the history view.
 
 **Recognizes:** Apple · Banana · Tomato · Potato · Onion
 
@@ -13,7 +13,7 @@ Upload a photo and the model returns the predicted class and confidence score. E
 | Layer | Technology |
 |---|---|
 | Backend | FastAPI + Uvicorn |
-| ML Inference | PyTorch + ResNet18 (transfer learning) |
+| ML Inference | ResNet18 via Google Colab + ngrok (httpx) |
 | Templates | Jinja2 + HTML/CSS |
 | Database | PostgreSQL + SQLAlchemy |
 | Dataset | [Fruits-360](https://www.kaggle.com/datasets/moltean/fruits) (Kaggle) |
@@ -24,11 +24,11 @@ Upload a photo and the model returns the predicted class and confidence score. E
 
 ```
 freshscan/
-├── main.py                                   # Routes and app setup
-├── model.py                                  # Model loading and inference
-├── database.py                               # DB engine and session
-├── models_db.py                              # Prediction ORM model
-├── modelo_frutas_vegetales_resnet18.pth      # Trained model weights
+├── main.py          # Routes and app setup
+├── model.py         # Inference client (calls Colab via ngrok)
+├── database.py      # DB engine and session
+├── models_db.py     # Prediction ORM model
+├── .env             # COLAB_INFERENCE_URL (not committed)
 ├── static/
 │   └── css/
 │       └── style.css
@@ -53,12 +53,18 @@ cd freshscan
 ### 2. Install dependencies
 
 ```bash
-pip install fastapi uvicorn sqlalchemy psycopg2-binary torch torchvision pillow python-multipart
+pip install fastapi uvicorn sqlalchemy psycopg2-binary httpx python-dotenv python-multipart pydantic
 ```
 
-### 3. Add the model file
+### 3. Configure the inference URL
 
-Place `modelo_frutas_vegetales_resnet18.pth` in the project root. The file is not included in the repository due to its size.
+Create a `.env` file in the project root:
+
+```env
+COLAB_INFERENCE_URL=https://your-ngrok-url.ngrok-free.app
+```
+
+The model runs on Google Colab and is exposed via ngrok. Start the Colab notebook first, then paste the ngrok URL here before launching the app.
 
 ### 4. Create the PostgreSQL database
 
@@ -89,23 +95,50 @@ Open `http://localhost:8000` in your browser.
 | `GET` | `/` | Upload form |
 | `POST` | `/predict` | Run inference and save result |
 | `GET` | `/history` | All past predictions |
+| `DELETE` | `/history` | Delete all predictions (resets ID sequence) |
+| `DELETE` | `/history/{id}` | Delete a single prediction |
+| `PATCH` | `/history/{id}` | Update user-selected class and recompute result |
+
+---
+
+## How It Works
+
+1. Upload a JPG or PNG image (max 5 MB).
+2. Select the class you think is correct from the 5 available options — required before submitting.
+3. The app sends the image to the ResNet18 model running on Colab.
+4. The predicted class is compared against your selection and the result is stored as **Correct** or **Incorrect**.
+5. All predictions are visible in the history view, where you can:
+   - Edit the selected class per record (result recomputes automatically).
+   - Delete individual records.
+   - Delete all records at once (ID sequence resets to 1).
+
+---
+
+## Database Schema
+
+Table: `predictions`
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | Integer PK | Auto-increment |
+| `filename` | String | Uploaded file name |
+| `predicted_class` | String | Model output |
+| `confidence` | Float | Softmax confidence (0–1) |
+| `user_class` | String (nullable) | Class selected by user |
+| `result` | String (nullable) | `Correct` or `Incorrect` |
+| `created_at` | DateTime | Timestamp |
+
+New columns are added automatically via `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` on startup — no migration tool required.
 
 ---
 
 ## Model
 
-ResNet18 pretrained on ImageNet, fine-tuned on the Fruits-360 dataset with 5 general classes. The final fully connected layer was replaced to output 5 classes. Only the FC layer was trained (all other weights frozen).
+ResNet18 pretrained on ImageNet, fine-tuned on Fruits-360 with 5 general classes. `layer4` and the final FC layer (`Linear(512 → 5)`) were unfrozen for fine-tuning; earlier layers remain frozen.
 
-Training used 50 images per class (40 train / 10 validation). On the Fruits-360 validation set, the model reaches ~98% accuracy. On real-world photos the accuracy drops to approximately 66%.
+Training used 90 images per class (80 Fruits-360 + 10 real photos). Validation accuracy on Fruits-360: ~99%. On real-world photos: ~70%.
 
-The `.pth` file stores both the model weights and the class list:
-
-```python
-{
-    "model_state_dict": ...,
-    "classes": ["Apple", "Banana", "Tomato", "Potato", "Onion"]
-}
-```
+Inference runs remotely on Google Colab via a Flask endpoint exposed through ngrok.
 
 ---
 
@@ -113,11 +146,4 @@ The `.pth` file stores both the model weights and the class list:
 
 - Accepted formats: `.jpg`, `.jpeg`, `.png`
 - Maximum file size: 5 MB
-
----
-
-## Notes
-
-- The database tables are created automatically on first run via SQLAlchemy's `create_all`.
-- Model weights load on startup using FastAPI's `lifespan` context.
-- Predictions in the history view are sorted newest first.
+- A class must be selected before submitting

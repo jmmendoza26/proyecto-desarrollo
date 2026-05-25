@@ -6,7 +6,7 @@
 
   <div class="scan-header">
     <h1 class="scan-title">Image <span class="accent">Analysis</span></h1>
-    <p class="scan-subtitle">Upload a photo of a fruit or vegetable to classify it.</p>
+    <p class="scan-subtitle">Upload a photo and select the correct class to analyze it.</p>
   </div>
 
   <form class="upload-form" action="/predict" method="post" enctype="multipart/form-data" id="uploadForm">
@@ -45,6 +45,22 @@
       </div>
     </div>
 
+    <!-- Class selector — revealed after image is attached -->
+    <div class="class-selector" id="classSelector" style="display:none;">
+      <span class="class-selector-label">Select the correct class</span>
+      <div class="class-selector-row">
+        {% set class_icons = {"Apple": "🍎", "Banana": "🍌", "Tomato": "🍅", "Potato": "🥔", "Onion": "🧅"} %}
+        {% for cls in classes %}
+        <button
+          type="button"
+          class="class-selector-btn class-selector-btn--{{ cls | lower }}"
+          data-class="{{ cls }}"
+        >{{ class_icons[cls] }} {{ cls }}</button>
+        {% endfor %}
+      </div>
+      <input type="hidden" name="user_class" id="userClassInput" value="">
+    </div>
+
     <button type="submit" class="btn-analyze" id="submitBtn" disabled>
       <span class="btn-text">ANALYZE</span>
       <span class="btn-arrow">→</span>
@@ -52,37 +68,36 @@
 
   </form>
 
-  <div class="class-chips">
-    <span class="chips-label">Detectable classes</span>
-    <div class="chips-row">
-      <span class="chip chip--apple">🍎 Apple</span>
-      <span class="chip chip--banana">🍌 Banana</span>
-      <span class="chip chip--tomato">🍅 Tomato</span>
-      <span class="chip chip--potato">🥔 Potato</span>
-      <span class="chip chip--onion">🧅 Onion</span>
-    </div>
-  </div>
-
 </section>
 
 <script>
-  const dropZone   = document.getElementById('dropZone');
-  const fileInput  = document.getElementById('fileInput');
-  const dropIdle   = document.getElementById('dropIdle');
-  const dropPreview= document.getElementById('dropPreview');
-  const previewImg = document.getElementById('previewImg');
-  const previewName= document.getElementById('previewName');
-  const clearBtn   = document.getElementById('clearBtn');
-  const submitBtn  = document.getElementById('submitBtn');
+  const dropZone    = document.getElementById('dropZone');
+  const fileInput   = document.getElementById('fileInput');
+  const dropIdle    = document.getElementById('dropIdle');
+  const dropPreview = document.getElementById('dropPreview');
+  const previewImg  = document.getElementById('previewImg');
+  const previewName = document.getElementById('previewName');
+  const clearBtn    = document.getElementById('clearBtn');
+  const submitBtn   = document.getElementById('submitBtn');
+  const classSelector  = document.getElementById('classSelector');
+  const userClassInput = document.getElementById('userClassInput');
+  const classBtns      = document.querySelectorAll('.class-selector-btn');
 
-  // Abrir selector al hacer clic en la zona
+  let hasFile  = false;
+  let hasClass = false;
+
+  function updateSubmit() {
+    const ready = hasFile && hasClass;
+    submitBtn.disabled = !ready;
+    submitBtn.classList.toggle('ready', ready);
+  }
+
   dropZone.addEventListener('click', (e) => {
     if (e.target === clearBtn || clearBtn.contains(e.target)) return;
     if (e.target === fileInput) return;
     fileInput.click();
   });
 
-  // Drag & drop visual
   dropZone.addEventListener('dragover', (e) => {
     e.preventDefault();
     dropZone.classList.add('dragging');
@@ -111,8 +126,9 @@
       previewName.textContent = file.name;
       dropIdle.style.display = 'none';
       dropPreview.style.display = 'flex';
-      submitBtn.disabled = false;
-      submitBtn.classList.add('ready');
+      classSelector.style.display = 'flex';
+      hasFile = true;
+      updateSubmit();
     };
     reader.readAsDataURL(file);
   }
@@ -123,11 +139,24 @@
     previewName.textContent = '';
     dropIdle.style.display = 'flex';
     dropPreview.style.display = 'none';
-    submitBtn.disabled = true;
-    submitBtn.classList.remove('ready');
+    classSelector.style.display = 'none';
+    userClassInput.value = '';
+    classBtns.forEach(b => b.classList.remove('selected'));
+    hasFile  = false;
+    hasClass = false;
+    updateSubmit();
   }
 
-  // Efecto de carga al enviar
+  classBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      classBtns.forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      userClassInput.value = btn.dataset.class;
+      hasClass = true;
+      updateSubmit();
+    });
+  });
+
   document.getElementById('uploadForm').addEventListener('submit', () => {
     submitBtn.querySelector('.btn-text').textContent = 'ANALYZING...';
     submitBtn.disabled = true;

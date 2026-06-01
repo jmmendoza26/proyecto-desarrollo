@@ -24,11 +24,15 @@ Upload a photo, select the correct class, and the model returns the predicted cl
 
 ```
 freshscan/
-├── main.py          # Routes and app setup
-├── model.py         # Inference client (calls Colab via ngrok)
-├── database.py      # DB engine and session
-├── models_db.py     # Prediction ORM model
-├── .env             # COLAB_INFERENCE_URL (not committed)
+├── main.py                              # App entry point: lifespan, static mount, router
+├── database.py                          # DB engine and session
+├── .env                                 # COLAB_INFERENCE_URL (not committed)
+├── models/
+│   └── prediction_model.py              # Prediction ORM model (SQLAlchemy)
+├── controllers/
+│   └── prediction_controller.py         # All routes and business logic (APIRouter)
+├── services/
+│   └── inference_service.py             # Inference client (calls Colab via ngrok)
 ├── static/
 │   └── css/
 │       └── style.css
